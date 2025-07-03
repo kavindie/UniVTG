@@ -110,3 +110,16 @@ This repo is maintained by [Kevin](https://qinghonglin.github.io/). Questions an
 This codebase is based on [moment_detr](https://github.com/jayleicn/moment_detr), [HERO_Video_Feature_Extractor](https://github.com/linjieli222/HERO_Video_Feature_Extractor), [UMT](https://github.com/tencentarc/umt).
 
 We thank the authors for their open-source contributions.
+
+
+## How to get this working in DELL machine 
+1. python3 -m venv .venv
+2. . .venv/bin/activate
+3. pip install torch gradio ffmpeg-python torchvision ftfy regex gdown tabulate scipy
+4. mkdir results
+5. mkdir results/omni
+6. cd results/omni
+7. gdown --folder https://drive.google.com/drive/folders/1-eGata6ZPV0A1BBsZpYyIooos9yjMx2f?usp=sharing
+8. cd ../..
+9. python3 main_gradio.py --resume ./results/omni/pt/model_best.ckpt --gpu_id 1
+
