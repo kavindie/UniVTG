@@ -320,6 +320,6 @@ xlrd==2.0.1
 XlsxWriter==3.1.2
 yacs==0.1.8
 yarl==1.9.2
-yt-dlp==2023.3.4
+yt-dlp==2025.7.21
 zipp==3.8.1
 protobuf===3.9.2
