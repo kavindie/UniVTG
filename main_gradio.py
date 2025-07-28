@@ -114,13 +114,25 @@ def forward(model, save_dir, query):
     hl_response = f"The Top-1 highlight is: {hl_res}"
     return '\n'.join([q_response, mr_response, hl_response])
     
+# def extract_vid(vid_path, state):
+#     history = state['messages']
+#     vid_features = vid2clip(clip_model, vid_path, args.save_dir)
+#     history.append({"role": "user", "content": "Finish extracting video features."}) 
+#     history.append({"role": "system", "content": "Please Enter the text query."}) 
+#     chat_messages = [(history[i]['content'], history[i+1]['content']) for i in range(0, len(history),2)]
+#     return '', chat_messages, state
+
 def extract_vid(vid_path, state):
-    history = state['messages']
+    history = state.get("messages", [])
     vid_features = vid2clip(clip_model, vid_path, args.save_dir)
-    history.append({"role": "user", "content": "Finish extracting video features."}) 
-    history.append({"role": "system", "content": "Please Enter the text query."}) 
-    chat_messages = [(history[i]['content'], history[i+1]['content']) for i in range(0, len(history),2)]
-    return '', chat_messages, state
+
+    # Append new messages in correct format
+    history.append({"role": "user", "content": "Finish extracting video features."})
+    history.append({"role": "assistant", "content": "Please enter the text query."})
+
+    state["messages"] = history
+
+    return "", history  # ✅ Return only two values, with correctly formatted messages
 
 def extract_txt(txt):
     txt_features = txt2clip(clip_model, txt, args.save_dir)
@@ -139,32 +151,59 @@ def download_video(url, save_dir='./examples', size=768):
 def get_empty_state():
     return {"total_tokens": 0, "messages": []}
 
+# def submit_message(prompt, state):
+#     history = state['messages']
+
+#     if not prompt:
+#         return gr.update(value=''), [(history[i]['content'], history[i+1]['content']) for i in range(0, len(history)-1, 2)], state
+
+#     prompt_msg = { "role": "user", "content": prompt }
+    
+#     try:
+#         history.append(prompt_msg)
+#         # answer = vlogger.chat2video(prompt)
+#         # answer = prompt
+#         extract_txt(prompt)
+#         answer = forward(vtg_model, args.save_dir, prompt)
+#         history.append({"role": "system", "content": answer}) 
+
+#     except Exception as e:
+#         history.append(prompt_msg)
+#         history.append({
+#             "role": "system",
+#             "content": f"Error: {e}"
+#         })
+
+#     chat_messages = [(history[i]['content'], history[i+1]['content']) for i in range(0, len(history)-1, 2)]
+#     return '', chat_messages, state
+
 def submit_message(prompt, state):
-    history = state['messages']
+    history = state.get("messages", [])
 
     if not prompt:
-        return gr.update(value=''), [(history[i]['content'], history[i+1]['content']) for i in range(0, len(history)-1, 2)], state
+        # Return empty prompt and existing history
+        return gr.update(value=''), history, state
 
     prompt_msg = { "role": "user", "content": prompt }
-    
+
     try:
         history.append(prompt_msg)
-        # answer = vlogger.chat2video(prompt)
-        # answer = prompt
+
+        # Run the model inference
         extract_txt(prompt)
         answer = forward(vtg_model, args.save_dir, prompt)
-        history.append({"role": "system", "content": answer}) 
+
+        # Add model response
+        history.append({ "role": "assistant", "content": answer })
 
     except Exception as e:
-        history.append(prompt_msg)
-        history.append({
-            "role": "system",
-            "content": f"Error: {e}"
-        })
+        # Handle and log errors
+        history.append({ "role": "assistant", "content": f"Error: {e}" })
 
-    chat_messages = [(history[i]['content'], history[i+1]['content']) for i in range(0, len(history)-1, 2)]
-    return '', chat_messages, state
+    state["messages"] = history
 
+    # Return: updated textbox (cleared), updated chat history (dicts), updated state
+    return "", history, state
 
 def clear_conversation():
     return gr.update(value=None, visible=True), gr.update(value=None, interactive=True), None, gr.update(value=None, visible=True), get_empty_state()
@@ -208,8 +247,8 @@ with gr.Blocks(css=css) as demo:
                 # vlog_outp = gr.Textbox(label="Document output", lines=40)
                 total_tokens_str = gr.Markdown(elem_id="total_tokens_str")
                 
-                chatbot = gr.Chatbot(elem_id="chatbox")
-                input_message = gr.Textbox(show_label=False, placeholder="Enter text query and press enter", visible=True).style(container=False)
+                chatbot = gr.Chatbot(elem_id="chatbox", type="messages")
+                input_message = gr.Textbox(show_label=False, placeholder="Enter text query and press enter", visible=True, container=False)
                 btn_submit = gr.Button("Step3: Enter your text query")
                 btn_clear_conversation = gr.Button("🔃 Clear")
 
@@ -231,8 +270,8 @@ with gr.Blocks(css=css) as demo:
     vid_ext.click(extract_vid, [video_inp, state], [input_message, chatbot])
     vidsub_btn.click(subvid_fn, [video_id], [video_inp])
 
-    demo.load(queur=False)
+    demo.load(queue=False)
 
 
-demo.queue(concurrency_count=10)
+demo.queue()
 demo.launch(height='800px', server_port=2253, debug=True, share=True)
